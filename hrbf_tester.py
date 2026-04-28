@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 
-import rbf
+from rbf import RBF
 
 st.set_page_config(layout="wide", page_title="HRBF Explorer")
 
@@ -14,8 +14,13 @@ if "points" not in st.session_state:
 if "selected" not in st.session_state:
     st.session_state.selected = 0
 
+if "rbf" not in st.session_state:
+    st.session_state.rbf = "pow3"
+
 points = st.session_state.points
 
+rbf = RBF.get(st.session_state.rbf)
+param = None
 
 # hrbf
 def f(X, Y, points):
@@ -24,7 +29,7 @@ def f(X, Y, points):
         DX = X - p["px"]
         DY = Y - p["py"]
         n  = np.maximum(np.sqrt(DX**2 + DY**2), 1e-8)
-        result += p["alpha"] * rbf.pow3(n) + rbf.dpow3(n) * (p["bx"] * DX / n + p["by"] * DY / n)
+        result += p["alpha"] * rbf(n, param) + rbf.d(n, param) * (p["bx"] * DX / n + p["by"] * DY / n)
     return result
 
 
@@ -33,22 +38,46 @@ def f(X, Y, points):
 left, right = st.columns([1, 2.5], gap="large")
 
 with left:
+
+    st.subheader("RBF")
+
+    selected_rbf = st.selectbox(
+            "fonction",
+            options=RBF.names(),
+            format_func = lambda n:n,
+            )
+
+    st.session_state.rbf = selected_rbf
+    rbf = RBF.get(selected_rbf)
+
+    if rbf.extra_param is not None :
+        print(rbf.extra_param["min"])
+        param = st.slider(
+                rbf.extra_param["name"],
+                min_value=rbf.extra_param["min"],
+                max_value=rbf.extra_param["max"],
+                value=rbf.extra_param["default"],
+                step=rbf.extra_param["step"]
+                )
+
+    
+
     st.subheader("Control Points")
 
     # Point list as buttons
     for i, p in enumerate(points):
         label = f"{'>' if i == st.session_state.selected else ''}P{i+1}  ({p['px']:.1f}, {p['py']:.1f})"
-        if st.button(label, key=f"sel_{i}", use_container_width=True):
+        if st.button(label, key=f"sel_{i}", width="stretch"):
             st.session_state.selected = i
 
     col_add, col_del = st.columns(2)
     with col_add:
-        if st.button("+ point", use_container_width=True):
+        if st.button("+ point", width="stretch"):
             st.session_state.points.append({"px": 0.0, "py": 0.0, "alpha": 1.0, "bx": 0.0, "by": 0.0})
             st.session_state.selected = len(st.session_state.points) - 1
             st.rerun()
     with col_del:
-        if st.button("Delete", use_container_width=True, disabled=len(points) <= 1):
+        if st.button("Delete", width="stretch", disabled=len(points) <= 1):
             st.session_state.points.pop(st.session_state.selected)
             st.session_state.selected = max(0, st.session_state.selected - 1)
             st.rerun()
@@ -123,13 +152,13 @@ with right:
         margin=dict(l=0, r=0, t=30, b=0),
         showlegend=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
     # contour 
 
      
-    Zt = np.sign(Z) * np.log1p(np.abs(Z))
+    # Zt = np.sign(Z) * np.log1p(np.abs(Z))
 
     fig2 = go.Figure()
  
@@ -185,6 +214,6 @@ with right:
         paper_bgcolor="rgba(0,0,0,0)",
     )
  
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
 
