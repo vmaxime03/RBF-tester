@@ -89,8 +89,8 @@ RBF.register(RBFKernel(
     ))
 RBF.register(RBFKernel(
     name    = "wendlandC2",
-    extra_param= _gen_extra_param("support radius", 1.0, 5.0, 2.0, 0.5),
-    phi     = lambda r, p : (lambda t : 0 if t >= 1 else (1-t)**4 * (4*t+1) )(r/p),
-    dphi    = lambda r, p : (lambda t : 0 if t >= 1 else -20 * t * (1-t)**3 / p )(r/p),
-    ddphi   = lambda r, p : (lambda t : 0 if t >= 1 else 20 * (1-t)**2 * (1 - 4*t) / p**2 )(r/p)
+    extra_param= _gen_extra_param("support radius", 0.0, 10.0, 2.0, 0.05),
+    phi     = lambda r, p : 0.0 if (r/p) >= 1 else (1-(r/p))**4 * (4*(r/p)+1),
+    dphi    = lambda r, p : 0.0 if (r/p) >= 1 else -20 * (r/p) * (1-(r/p))**3 / p ,
+    ddphi   = lambda r, p : 0.0 if (r/p) >= 1 else 20 * (1-(r/p))**2 * (1 - 4*(r/p)) / p**2 
     ))
