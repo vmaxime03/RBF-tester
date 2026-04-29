@@ -7,10 +7,10 @@ from typing import Callable, Optional, override, Any
 @dataclass 
 class RBFKernel:
     name : str = ""
-    extra_param : dict[str, int | float | str] | None = None
-    phi : Callable | None = None
-    dphi : Callable | None = None
-    ddphi : Callable | None = None
+    extra_param : dict[str, float | str] | None = None
+    phi : Callable[..., Any] | None = None
+    dphi : Callable[..., Any] | None = None
+    ddphi : Callable[..., Any] | None = None
 
     def __call__(self, r, p = None):
         return np.vectorize(self.phi)(r, p)
@@ -44,7 +44,7 @@ class _RBFRegistry:
 
 RBF = _RBFRegistry()
 
-def _gen_extra_param(name : str, min, max, default, step) -> dict[str, int | float | str] :
+def _gen_extra_param(name : str, min, max, default, step) -> dict[str, float | str] :
     return {
             "name" : name,
             "min" : min,
