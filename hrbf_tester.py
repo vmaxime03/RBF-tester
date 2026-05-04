@@ -130,9 +130,9 @@ with left:
     with c2:
         p["py"] = st.number_input("y", value=p["py"], step=0.5, format="%.2f", key=f"py_{idx}_{ic}")
 
-    p["alpha"] = st.slider("α",  min_value=-5.0, max_value=5.0, value=p["alpha"], step=0.05, key=f"a_{idx}_{ic}")
-    p["bx"]    = st.slider("βx", min_value=-5.0, max_value=5.0, value=p["bx"],    step=0.05, key=f"bx_{idx}_{ic}")
-    p["by"]    = st.slider("βy", min_value=-5.0, max_value=5.0, value=p["by"],    step=0.05, key=f"by_{idx}_{ic}")
+    p["alpha"] = st.slider("α",  min_value=-5.0, max_value=5.0, value=p["alpha"], step=0.01, key=f"a_{idx}_{ic}")
+    p["bx"]    = st.slider("βx", min_value=-5.0, max_value=5.0, value=p["bx"],    step=0.01, key=f"bx_{idx}_{ic}")
+    p["by"]    = st.slider("βy", min_value=-5.0, max_value=5.0, value=p["by"],    step=0.01, key=f"by_{idx}_{ic}")
 
     st.session_state.points[idx] = p
 
