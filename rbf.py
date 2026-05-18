@@ -57,11 +57,11 @@ RBF.register(RBFKernel(
     ddphi   = lambda r, _ : 2 * np.log(r) + 3
     ))
 RBF.register(RBFKernel(
-    name    = "gaussian",
-    phi     = lambda r, e : np.exp(-(e**2) * r**2),
-    dphi    = lambda r, e : -2*(e**2)*r * np.exp(-(e**2) * r**2),
-    ddphi   = lambda r, e : (-2*(e**2) + 4*e**4*r**2) * np.exp(-(e**2) * r ** 2)
-    ))
+    name  = "gaussian",
+    phi   = lambda r, s: np.exp(-r*r / (2*s*s)),
+    dphi  = lambda r, s: (-r/(s*s)) * np.exp(-r*r / (2*s*s)),
+    ddphi = lambda r, s: ((r*r)/(s**4) - 1./(s*s)) * np.exp(-r*r / (2*s*s))
+))
 RBF.register(RBFKernel(
     name    = "multiquadric",
     phi     = lambda r, e : np.sqrt(1 + e**2*r**2),
