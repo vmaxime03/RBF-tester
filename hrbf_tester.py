@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 
 from rbf import RBF
 
+
 st.set_page_config(layout="wide", page_title="HRBF Explorer")
 
 # SESSION 
@@ -402,3 +403,5 @@ with right:
         st.session_state.points = data["points"]
         st.session_state.selected = 0
         st.rerun()
+
+

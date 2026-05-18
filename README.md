@@ -1,4 +1,9 @@
 ```shell
+# with uv : 
+uv run main.py 
+
+
+# manualy 
 python -m venv .env
 source .env/bin/activate
 pip install streamlit
