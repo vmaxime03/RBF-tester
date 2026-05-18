@@ -12,7 +12,7 @@ st.set_page_config(layout="wide", page_title="HRBF Explorer")
 
 if "points" not in st.session_state:
     st.session_state.points = [
-        {"px": 0.0, "py": 0.0, "alpha": 1.0, "bx": 0.0, "by": 0.0}
+        {"px": 0.0, "py": 0.0, "alpha": 1.0, "bx": 0.0, "by": 0.0, "s": 1.0}
     ]
 
 if "selected" not in st.session_state:
@@ -32,14 +32,15 @@ points = st.session_state.points
 rbf = RBF.get(st.session_state.rbf)
 param = st.session_state.param
 
-# hrbf
+# hrbf — sigma is now per-point: p["s"] is passed as the RBF param
 def f(X, Y, points):
     result = np.zeros_like(X, dtype=float)
     for p in points:
         DX = X - p["px"]
         DY = Y - p["py"]
         n  = np.maximum(np.sqrt(DX**2 + DY**2), 1e-8)
-        result += p["alpha"] * rbf(n, param) + rbf.d(n, param) * (p["bx"] * DX / n + p["by"] * DY / n)
+        s  = p["s"]
+        result += p["alpha"] * rbf(n, s) + rbf.d(n, s) * (p["bx"] * DX / n + p["by"] * DY / n)
     return result
 
 
@@ -75,40 +76,20 @@ with left:
     st.session_state.rbf = selected_rbf
     rbf = RBF.get(selected_rbf)
 
-    if rbf.extra_param is not None :
-        _param_val = st.session_state.param
-        if _param_val is None:
-            _param_val = rbf.extra_param["default"]
-        _param_val = max(rbf.extra_param["min"], min(rbf.extra_param["max"], _param_val))
-        param = st.slider(
-                rbf.extra_param["name"],
-                min_value=rbf.extra_param["min"],
-                max_value=rbf.extra_param["max"],
-                value=_param_val,
-                step=rbf.extra_param["step"]
-                )
-        st.session_state.param = param
-    else:
-        param = None
-        st.session_state.param = None
-
-    st.divider()
-    
-
     st.subheader("Control Points")
 
     ic = st.session_state.last_upload_id # id pour empecher le cache streamlit d'override les points issu d'un upload
 
     # Point list as buttons
     for i, p in enumerate(points):
-        label = f"{'>' if i == st.session_state.selected else ''}P{i+1}  ({p['px']:.2f}, {p['py']:.1f})"
+        label = f"{'>' if i == st.session_state.selected else ''}P{i+1}  ({p['px']:.4f}, {p['py']:.4f})"
         if st.button(label, key=f"sel_{i}_{ic}", width="stretch"):
             st.session_state.selected = i
 
     col_add, col_del = st.columns(2)
     with col_add:
         if st.button("+ point", width="stretch"):
-            st.session_state.points.append({"px": 0.0, "py": 0.0, "alpha": 1.0, "bx": 0.0, "by": 0.0})
+            st.session_state.points.append({"px": 0.0, "py": 0.0, "alpha": 1.0, "bx": 0.0, "by": 0.0, "s": 1.0})
             st.session_state.selected = len(st.session_state.points) - 1
             st.rerun()
     with col_del:
@@ -127,18 +108,19 @@ with left:
 
     c1, c2 = st.columns(2)
     with c1:
-        p["px"] = st.number_input("x", value=p["px"], step=0.5, format="%.2f", key=f"px_{idx}_{ic}")
+        p["px"] = st.number_input("x", value=p["px"], step=0.5, format="%.4f", key=f"px_{idx}_{ic}")
     with c2:
-        p["py"] = st.number_input("y", value=p["py"], step=0.5, format="%.2f", key=f"py_{idx}_{ic}")
+        p["py"] = st.number_input("y", value=p["py"], step=0.5, format="%.4f", key=f"py_{idx}_{ic}")
 
-    p["alpha"] = st.slider("α",  min_value=-5.0, max_value=5.0, value=p["alpha"], step=0.01, key=f"a_{idx}_{ic}")
-    p["bx"]    = st.slider("βx", min_value=-5.0, max_value=5.0, value=p["bx"],    step=0.01, key=f"bx_{idx}_{ic}")
-    p["by"]    = st.slider("βy", min_value=-5.0, max_value=5.0, value=p["by"],    step=0.01, key=f"by_{idx}_{ic}")
+    p["alpha"] = st.slider("α",  min_value=-5.0, max_value=5.0, value=float(p["alpha"]), step=0.001, key=f"a_{idx}_{ic}")
+    p["bx"]    = st.slider("βx", min_value=-5.0, max_value=5.0, value=float(p["bx"]),    step=0.001, key=f"bx_{idx}_{ic}")
+    p["by"]    = st.slider("βy", min_value=-5.0, max_value=5.0, value=float(p["by"]),    step=0.001, key=f"by_{idx}_{ic}")
+    p["s"]     = st.slider("σ",  min_value=0.01,  max_value=5.0,  value=float(p["s"]), step=0.001, key=f"s_{idx}_{ic}")
 
     st.session_state.points[idx] = p
 
 
-    # DETAIL DE F 
+    # DETAIL  F 
 
     st.divider()
 
@@ -146,12 +128,12 @@ with left:
     st.latex(r"""
         f(x) = \sum_{i}^N f_i
         \newline
-        f_i = \alpha_i \phi(\| x - p_i \|) + \phi'(x) \times \beta_i \cdot \frac{ x - p_i }{\| x - p_i \|}
+        f_i = \alpha_i \phi_{\sigma_i}(\| x - p_i \|) + \phi'_{\sigma_i}(\| x - p_i \|) \times \beta_i \cdot \frac{ x - p_i }{\| x - p_i \|}
     """)
 
 
-    cx = st.slider("x", float(-grid), float(grid), 0.0, step=0.01)
-    cy = st.slider("y", float(-grid), float(grid), 0.0, step=0.01)
+    cx = st.slider("x", float(-grid), float(grid), 0.0, step=0.001)
+    cy = st.slider("y", float(-grid), float(grid), 0.0, step=0.001)
 
 
     rows = []
@@ -162,29 +144,29 @@ with left:
         dy = cy - p["py"]
 
         n = max(np.sqrt(dx**2 + dy**2), 1e-8) # x-pi
+        s = p.get("s", 1.0)
 
-        phi_v = float(rbf(np.array([n]), param)[0])
-        dphi_v = float(rbf.d(np.array([n]), param)[0])
+        phi_v  = float(rbf(np.array([n]), s)[0])
+        dphi_v = float(rbf.d(np.array([n]), s)[0])
 
         contrib = p["alpha"] * phi_v + dphi_v * (p["bx"] * dx / n + p["by"] * dy / n)
         total += contrib
 
-        rows.append((i+1, p["px"], p["py"], n, p["alpha"], phi_v, dphi_v, p["bx"], dx/n, p["by"], dy/n, contrib))
+        rows.append((i+1, p["px"], p["py"], s, n, p["alpha"], phi_v, dphi_v, p["bx"], dx/n, p["by"], dy/n, contrib))
 
-    st.latex(rf"f(({cx:.2f}, {cy:.2f})) = {total:.2f}")
+    st.latex(rf"f(({cx:.4f}, {cy:.4f})) = {total:.4f}")
 
-    for (i, px, py, n, alpha, phiv, dphiv, bx, dx_n, by, dy_n, contrib) in rows:
+    for (i, px, py, s, n, alpha, phiv, dphiv, bx, dx_n, by, dy_n, contrib) in rows:
         latex = rf"""
-        p_{i} = ({px}, {py}), \alpha_{i} = {alpha}, \beta_{i} = ({bx}, {by}) \newline 
+        p_{i} = ({px}, {py}),\ \sigma_{i} = {s},\ \alpha_{i} = {alpha},\ \beta_{i} = ({bx}, {by}) \newline 
         \begin{{aligned}}
-        n_{i} &= \| x - p_{i} \| = {n:.2f} \\
-                \phi(n_{i}) &= {phiv:.2f} \\
-                \phi'(n_{i}) &= {dphiv:.2f} \\
-        f_{i} &= {alpha:.2f} \times \phi(n_{i}) + \phi'(n_{i}) \times ({bx:.2f} \times {dx_n:.2f} + {by:.2f} \times {dy_n:.2f}) \\
-        f_{i} &= {alpha:.2f} \times {phiv:.2f} + {dphiv:.2f} \times ({bx:.2f} \times {dx_n:.2f} + {by:.2f} \times {dy_n:.2f}) \\
-        f_{i} &= {alpha * phiv:.2f} + {dphiv:.2f} \times ({bx * dx_n + by * dy_n:.2f}) \\
-        f_{i} &= {alpha * phiv:.2f} + {dphiv * (bx * dx_n + by * dy_n):.2f} \\
-        f_{i} &= {contrib:.2f} \\
+        n_{i} &= \| x - p_{i} \| = {n:.4f} \\
+                \phi_{{\sigma_{i}}}(n_{i}) &= {phiv:.4f} \\
+                \phi'_{{\sigma_{i}}}(n_{i}) &= {dphiv:.4f} \\
+        f_{i} &= {alpha:.4f} \times \phi(n_{i}) + \phi'(n_{i}) \times ({bx:.4f} \times {dx_n:.4f} + {by:.4f} \times {dy_n:.4f}) \\
+        f_{i} &= {alpha * phiv:.4f} + {dphiv:.4f} \times ({bx * dx_n + by * dy_n:.4f}) \\
+        f_{i} &= {alpha * phiv:.4f} + {dphiv * (bx * dx_n + by * dy_n):.4f} \\
+        f_{i} &= {contrib:.4f} \\
         \end{{aligned}}
         """
 
@@ -203,7 +185,7 @@ with right:
     # Scatter markers for control points
     px_arr = [p["px"] for p in points]
     py_arr = [p["py"] for p in points]
-    labels = [f"P{i+1} α={p['alpha']:.2f} βx={p['bx']:.2f} βy={p['by']:.2f}" for i, p in enumerate(points)]
+    labels = [f"P{i+1} α={p['alpha']:.4f} βx={p['bx']:.4f} βy={p['by']:.4f} σ={p["s"]:.4f}" for i, p in enumerate(points)]
 
     fig = go.Figure()
     fig.add_trace(go.Surface(x=X, y=Y, z=Z, colorscale="RdBu", opacity=0.9, showscale=False))
@@ -330,17 +312,12 @@ with right:
 
 
 
-    # RBF PROFIL
-
-
     st.subheader("RBF Profil")
     r_max = grid * 1.5
     r_vals = np.linspace(0, r_max, 400)
-    phi_vals = rbf(r_vals, param);
-    dphi_vals = rbf.d(r_vals, param)
-
-
-
+    _s_selected = float(st.session_state.points[st.session_state.selected].get("s", 1.0))
+    phi_vals  = rbf(r_vals, _s_selected)
+    dphi_vals = rbf.d(r_vals, _s_selected)
 
     
     col_phi, col_dphi = st.columns(2)
@@ -353,7 +330,7 @@ with right:
         ))
         fig_phi.add_hline(y=0, line=dict(color="white", width=1, dash="dot"))
         fig_phi.update_layout(
-            title="φ(r)",
+            title=f"φ(r)  [σ={_s_selected:.3f}]",
             height=300,
             margin=dict(l=0, r=0, t=40, b=0),
             xaxis_title="r",
@@ -370,7 +347,7 @@ with right:
         ))
         fig_dphi.add_hline(y=0, line=dict(color="white", width=1, dash="dot"))
         fig_dphi.update_layout(
-            title="φ'(r)",
+            title=f"φ'(r)  [σ={_s_selected:.3f}]",
             height=300,
             margin=dict(l=0, r=0, t=40, b=0),
             xaxis_title="r",
@@ -380,7 +357,9 @@ with right:
         st.plotly_chart(fig_dphi, width="stretch")
 
 st.divider()
-# export / export
+
+
+# export / import
 
 left, right = st.columns(2)
 
@@ -400,8 +379,7 @@ with right:
         data = json.load(uploaded)
         st.session_state.rbf = data["rbf"]
         st.session_state.param = data.get("param")
-        st.session_state.points = data["points"]
+        loaded_points = data["points"]
+        st.session_state.points = loaded_points
         st.session_state.selected = 0
         st.rerun()
-
-
