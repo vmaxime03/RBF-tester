@@ -32,7 +32,10 @@ points = st.session_state.points
 rbf = RBF.get(st.session_state.rbf)
 param = st.session_state.param
 
-# hrbf — sigma is now per-point: p["s"] is passed as the RBF param
+
+
+
+
 def f(X, Y, points):
     result = np.zeros_like(X, dtype=float)
     for p in points:
@@ -49,7 +52,7 @@ def f(X, Y, points):
 left, right = st.columns(2)
 
 with left:
-    grid = st.slider("Grid ", 1, 100, 10, step=1)
+    grid = st.slider("Grid ", 1.0, 10.0, 3.0, step=0.5)
 with right:
     res = st.slider("Resolution", 40, 300, 100, step=10)
 
@@ -108,94 +111,43 @@ with left:
 
     c1, c2 = st.columns(2)
     with c1:
-        p["px"] = st.number_input("x", value=p["px"], step=0.5, format="%.4f", key=f"px_{idx}_{ic}")
+        p["px"] = st.number_input("x", value=p["px"], step=0.5, key=f"px_{idx}_{ic}")
     with c2:
-        p["py"] = st.number_input("y", value=p["py"], step=0.5, format="%.4f", key=f"py_{idx}_{ic}")
+        p["py"] = st.number_input("y", value=p["py"], step=0.5, key=f"py_{idx}_{ic}")
 
-    p["alpha"] = st.slider("α",  min_value=-5.0, max_value=5.0, value=float(p["alpha"]), step=0.001, key=f"a_{idx}_{ic}")
-    p["bx"]    = st.slider("βx", min_value=-5.0, max_value=5.0, value=float(p["bx"]),    step=0.001, key=f"bx_{idx}_{ic}")
-    p["by"]    = st.slider("βy", min_value=-5.0, max_value=5.0, value=float(p["by"]),    step=0.001, key=f"by_{idx}_{ic}")
-    p["s"]     = st.slider("σ",  min_value=0.01,  max_value=5.0,  value=float(p["s"]), step=0.001, key=f"s_{idx}_{ic}")
+    p["alpha"] = st.number_input("α",  value=float(p["alpha"]), step=0.001, key=f"a_{idx}_{ic}")
+    
+    p["bx"]    = st.number_input("βx", value=float(p["bx"]),    step=0.001, key=f"bx_{idx}_{ic}")
+    p["by"]    = st.number_input("βy", value=float(p["by"]),    step=0.001, key=f"by_{idx}_{ic}")
+    p["s"]     = st.number_input("σ", value=float(p["s"]), step=0.001, key=f"s_{idx}_{ic}")
 
     st.session_state.points[idx] = p
 
 
-    # DETAIL  F 
+   
 
-    st.divider()
+# PLOT
 
-
-    st.latex(r"""
-        f(x) = \sum_{i}^N f_i
-        \newline
-        f_i = \alpha_i \phi_{\sigma_i}(\| x - p_i \|) + \phi'_{\sigma_i}(\| x - p_i \|) \times \beta_i \cdot \frac{ x - p_i }{\| x - p_i \|}
-    """)
-
-
-    cx = st.slider("x", float(-grid), float(grid), 0.0, step=0.001)
-    cy = st.slider("y", float(-grid), float(grid), 0.0, step=0.001)
-
-
-    rows = []
-    total = 0
-
-    for i, p in enumerate(st.session_state.points):
-        dx = cx - p["px"] 
-        dy = cy - p["py"]
-
-        n = max(np.sqrt(dx**2 + dy**2), 1e-8) # x-pi
-        s = p.get("s", 1.0)
-
-        phi_v  = float(rbf(np.array([n]), s)[0])
-        dphi_v = float(rbf.d(np.array([n]), s)[0])
-
-        contrib = p["alpha"] * phi_v + dphi_v * (p["bx"] * dx / n + p["by"] * dy / n)
-        total += contrib
-
-        rows.append((i+1, p["px"], p["py"], s, n, p["alpha"], phi_v, dphi_v, p["bx"], dx/n, p["by"], dy/n, contrib))
-
-    st.latex(rf"f(({cx:.4f}, {cy:.4f})) = {total:.4f}")
-
-    for (i, px, py, s, n, alpha, phiv, dphiv, bx, dx_n, by, dy_n, contrib) in rows:
-        latex = rf"""
-        p_{i} = ({px}, {py}),\ \sigma_{i} = {s},\ \alpha_{i} = {alpha},\ \beta_{i} = ({bx}, {by}) \newline 
-        \begin{{aligned}}
-        n_{i} &= \| x - p_{i} \| = {n:.4f} \\
-                \phi_{{\sigma_{i}}}(n_{i}) &= {phiv:.4f} \\
-                \phi'_{{\sigma_{i}}}(n_{i}) &= {dphiv:.4f} \\
-        f_{i} &= {alpha:.4f} \times \phi(n_{i}) + \phi'(n_{i}) \times ({bx:.4f} \times {dx_n:.4f} + {by:.4f} \times {dy_n:.4f}) \\
-        f_{i} &= {alpha * phiv:.4f} + {dphiv:.4f} \times ({bx * dx_n + by * dy_n:.4f}) \\
-        f_{i} &= {alpha * phiv:.4f} + {dphiv * (bx * dx_n + by * dy_n):.4f} \\
-        f_{i} &= {contrib:.4f} \\
-        \end{{aligned}}
-        """
-
-        st.latex(latex)
-
-
-
-# PLOT 
 
 with right:
+    
+
     x = np.linspace(-grid, grid, res)
     y = np.linspace(-grid, grid, res)
     X, Y = np.meshgrid(x, y)
     Z = f(X, Y, st.session_state.points)
 
-    # Scatter markers for control points
     px_arr = [p["px"] for p in points]
     py_arr = [p["py"] for p in points]
     labels = [f"P{i+1} α={p['alpha']:.4f} βx={p['bx']:.4f} βy={p['by']:.4f} σ={p["s"]:.4f}" for i, p in enumerate(points)]
 
+
+    # 3D PLOT
     fig = go.Figure()
-    fig.add_trace(go.Surface(x=X, y=Y, z=Z, colorscale="RdBu", opacity=0.9, showscale=False))
-
     fig.add_trace(go.Surface(
-        x=X, y=Y, z=np.zeros_like(Z),
-        colorscale=[[0, "rgba(255,255,255,0.08)"], [1, "rgba(255,255,255,0.08)"]],
-        showscale=False, hoverinfo="skip", name="z=0 plane",
+        contours= { "z": {"show": True, "start":-0.01, "end":0.01, "size":0.1, "color":"red"}},
+        x=X, y=Y, z=Z, colorscale="RdBu", opacity=0.9, showscale=False))
 
-        ))
 
     fig.add_trace(go.Scatter3d(
         x=px_arr, y=py_arr, z=np.zeros(len(points)),
@@ -217,13 +169,6 @@ with right:
         hoverinfo="skip",
     ))
 
-    fig.add_trace(go.Scatter3d(
-        x = [cx], y = [cy], z=[0],
-        mode="markers",
-        marker=dict(size=8, color="white", symbol="diamond", line=dict(color="white", width=2)),
-        hoverinfo="skip"
-        ))
-
     fig.update_layout(
         height=650,
         scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="f(x,y)"),
@@ -235,22 +180,23 @@ with right:
     st.plotly_chart(fig, width="stretch")
 
 
-    # contour 
 
-     
-    # Zt = np.sign(Z) * np.log1p(np.abs(Z))
+    # 2D PLOT 
+
+    # contour 
+    Zt = np.sign(Z) * np.log1p(np.abs(Z))
 
     fig2 = go.Figure()
  
     fig2.add_trace(go.Contour(
-        x=x, y=y, z=Z,
+        x=x, y=y, z=Zt,
         contours=dict(coloring="lines", showlines=True),
         line=dict(width=1),
         showscale=True,
     ))
  
     fig2.add_trace(go.Contour(
-        x=x, y=y, z=Z,
+        x=x, y=y, z=Zt,
         contours=dict(start=0, end=0, size=1, coloring="none"),
         line=dict(color="red", width=2),
         showscale=False,
@@ -267,20 +213,6 @@ with right:
         hoverinfo="text",
         ))
 
-
-
-
-    fig2.add_trace(go.Scatter(
-        x = [cx], y = [cy],
-        mode="markers",
-        marker=dict(size=8, color="white", symbol="cross-thin", line=dict(color="white", width=2)),
-        showlegend=False,
-        hoverinfo="skip"
-
-        ))
-
-
- 
     annotations = []
     for p in st.session_state.points:
         if p["bx"] != 0.0 or p["by"] != 0.0:
@@ -311,52 +243,145 @@ with right:
     st.plotly_chart(fig2, width="stretch")
 
 
-
-    st.subheader("RBF Profil")
-    r_max = grid * 1.5
-    r_vals = np.linspace(0, r_max, 400)
-    _s_selected = float(st.session_state.points[st.session_state.selected].get("s", 1.0))
-    phi_vals  = rbf(r_vals, _s_selected)
-    dphi_vals = rbf.d(r_vals, _s_selected)
-
-    
-    col_phi, col_dphi = st.columns(2)
- 
-    with col_phi:
-        fig_phi = go.Figure()
-        fig_phi.add_trace(go.Scatter(
-            x=r_vals, y=phi_vals,
-            mode="lines", line=dict(color="royalblue", width=2), name="φ"
-        ))
-        fig_phi.add_hline(y=0, line=dict(color="white", width=1, dash="dot"))
-        fig_phi.update_layout(
-            title=f"φ(r)  [σ={_s_selected:.3f}]",
-            height=300,
-            margin=dict(l=0, r=0, t=40, b=0),
-            xaxis_title="r",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgb(17,17,34)",
-        )
-        st.plotly_chart(fig_phi, width="stretch")
- 
-    with col_dphi:
-        fig_dphi = go.Figure()
-        fig_dphi.add_trace(go.Scatter(
-            x=r_vals, y=dphi_vals,
-            mode="lines", line=dict(color="tomato", width=2), name="φ'"
-        ))
-        fig_dphi.add_hline(y=0, line=dict(color="white", width=1, dash="dot"))
-        fig_dphi.update_layout(
-            title=f"φ'(r)  [σ={_s_selected:.3f}]",
-            height=300,
-            margin=dict(l=0, r=0, t=40, b=0),
-            xaxis_title="r",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgb(17,17,34)",
-        )
-        st.plotly_chart(fig_dphi, width="stretch")
+# 3D SURFACE PLOT SELECTED POINTS 
 
 st.divider()
+
+left, right = st.columns([1, 4])
+
+with left:
+    pass
+    # TODO show_beta = st.checkbox("Show beta vector", value=False)
+
+
+with right:
+    selected_points_idx = st.multiselect("Selected Points", 
+                                     options=list(range(len(points))),
+                                     default=list(range(len(points))),
+                                     format_func= lambda i : f"P[{i+1}]",
+                                     key=f"multiselect_{ic}"
+                                     )
+
+unselected_points_idx = [i for i in range(len(points)) if i not in selected_points_idx]
+
+selected_points = [points[i] for i in selected_points_idx];
+
+Zsp = f(X, Y, selected_points)
+
+xflat = X.ravel()
+yflat = Y.ravel()
+
+fig = go.Figure()
+fig.add_trace(go.Surface(
+    contours= { "z": {"show": True, "start":-0.01, "end":0.01, "size":0.1, "color":"yellow"}},
+    x=X, y=Y, z=Zsp, colorscale="RdBu", opacity=0.9, showscale=False))
+
+fig.add_trace(go.Surface(
+    contours= { "z": {"show": True, "start":-0.01, "end":0.01, "size":0.1, "color":"red"}},
+    x=X, y=Y, z=Z, colorscale="gray", opacity=0.1, showscale=False))
+
+
+# POINTS
+
+spx = []
+spy = []
+uspx = []
+uspy = []
+
+for p in points:
+    if p in selected_points:
+        spx.append(p["px"])
+        spy.append(p["py"])
+    else:
+        uspx.append(p["px"])
+        uspy.append(p["py"])
+
+
+fig.add_trace(go.Scatter3d(
+        x=spx, y=spy, z=np.zeros(len(selected_points_idx)),
+        mode="markers+text",
+        text=[f"P{i+1}" for i in selected_points_idx],
+        textposition="top center",
+        hovertext=[labels[i] for i in selected_points_idx],
+        hoverinfo="text",
+        marker=dict(size=7, color="gold", line=dict(color="black", width=1)),
+    ))
+
+fig.add_trace(go.Scatter3d(
+        x=uspx, y=uspy, z=np.zeros(len(unselected_points_idx)),
+        mode="markers+text",
+        text=[f"P{i+1}" for i in unselected_points_idx],
+        textposition="top center",
+        hovertext=[labels[i] for i in unselected_points_idx],
+        hoverinfo="text",
+        marker=dict(size=7, color="purple", line=dict(color="black", width=1)),
+    ))
+
+
+
+
+fig.update_layout(
+    height=650,
+    scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="f(x,y)"),
+    margin=dict(l=0, r=0, t=30, b=0),
+    showlegend=False,
+)
+
+
+st.plotly_chart(fig, width="stretch")
+
+
+
+
+# RBF PROFIL
+
+
+st.subheader("RBF Profil")
+r_max = grid * 1.5
+r_vals = np.linspace(0, r_max, 400)
+_s_selected = float(st.session_state.points[st.session_state.selected].get("s", 1.0))
+phi_vals  = rbf(r_vals, _s_selected)
+dphi_vals = rbf.d(r_vals, _s_selected)
+
+
+col_phi, col_dphi = st.columns(2)
+
+with col_phi:
+    fig_phi = go.Figure()
+    fig_phi.add_trace(go.Scatter(
+        x=r_vals, y=phi_vals,
+        mode="lines", line=dict(color="royalblue", width=2), name="φ"
+    ))
+    fig_phi.add_hline(y=0, line=dict(color="white", width=1, dash="dot"))
+    fig_phi.update_layout(
+        title=f"φ(r)  [σ={_s_selected:.3f}]",
+        height=300,
+        margin=dict(l=0, r=0, t=40, b=0),
+        xaxis_title="r",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgb(17,17,34)",
+    )
+    st.plotly_chart(fig_phi, width="stretch")
+
+with col_dphi:
+    fig_dphi = go.Figure()
+    fig_dphi.add_trace(go.Scatter(
+        x=r_vals, y=dphi_vals,
+        mode="lines", line=dict(color="tomato", width=2), name="φ'"
+    ))
+    fig_dphi.add_hline(y=0, line=dict(color="white", width=1, dash="dot"))
+    fig_dphi.update_layout(
+        title=f"φ'(r)  [σ={_s_selected:.3f}]",
+        height=300,
+        margin=dict(l=0, r=0, t=40, b=0),
+        xaxis_title="r",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgb(17,17,34)",
+    )
+    st.plotly_chart(fig_dphi, width="stretch")
+
+st.divider()
+
 
 
 # export / import
